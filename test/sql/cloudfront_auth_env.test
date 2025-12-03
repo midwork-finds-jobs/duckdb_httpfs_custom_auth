@@ -1,0 +1,41 @@
+# name: test/sql/cloudfront_auth_env.test
+# description: test cloudfront_auth env provider
+# group: [cloudfront_auth]
+
+require cloudfront_auth
+
+require noforcestorage
+
+# Test env provider error when env vars not set
+statement error
+CREATE SECRET cf_env_missing (
+    TYPE cloudfront,
+    PROVIDER env,
+    SCOPE 'https://env.cloudfront.net/'
+);
+----
+Invalid Input Error: CloudFront secret requires KEY_PAIR_ID parameter or CLOUDFRONT_KEY_PAIR_ID environment variable
+
+# Test env provider with override parameters (fallback to config-like behavior)
+statement ok
+CREATE SECRET cf_env_override (
+    TYPE cloudfront,
+    PROVIDER env,
+    KEY_PAIR_ID 'ENVOVERRIDE123',
+    PRIVATE_KEY_PATH '__WORKING_DIRECTORY__/test/data/test_private_key.pem',
+    SCOPE 'https://envoverride.cloudfront.net/'
+);
+
+query I
+SELECT count(*) FROM duckdb_secrets() WHERE name = 'cf_env_override';
+----
+1
+
+query I
+SELECT secret_string LIKE '%CloudFront-Key-Pair-Id=ENVOVERRIDE123%' FROM duckdb_secrets() WHERE name = 'cf_env_override';
+----
+true
+
+# Cleanup
+statement ok
+DROP SECRET cf_env_override;

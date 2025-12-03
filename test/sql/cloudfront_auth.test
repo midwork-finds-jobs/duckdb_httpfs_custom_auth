@@ -1,0 +1,65 @@
+# name: test/sql/cloudfront_auth.test
+# description: test cloudfront_auth extension
+# group: [cloudfront_auth]
+
+# Before we load the extension, this will fail
+statement error
+SELECT cloudfront_auth_version();
+----
+Catalog Error: Scalar Function with name cloudfront_auth_version does not exist!
+
+# Require statement will ensure this test is run with this extension loaded
+require cloudfront_auth
+
+# Confirm the extension works - version function
+query I
+SELECT cloudfront_auth_version();
+----
+cloudfront_auth v0.1.0
+
+# Test that cloudfront secret type is registered
+query I
+SELECT count(*) FROM duckdb_secret_types() WHERE type = 'cloudfront';
+----
+1
+
+# Test error: missing KEY_PAIR_ID
+statement error
+CREATE SECRET test_missing_key_pair (
+    TYPE cloudfront,
+    PRIVATE_KEY_PATH '/tmp/test.pem',
+    SCOPE 'https://example.cloudfront.net/'
+);
+----
+Invalid Input Error: CloudFront secret requires KEY_PAIR_ID parameter
+
+# Test error: missing PRIVATE_KEY or PRIVATE_KEY_PATH
+statement error
+CREATE SECRET test_missing_key_path (
+    TYPE cloudfront,
+    KEY_PAIR_ID 'TESTKEYPAIRID',
+    SCOPE 'https://example.cloudfront.net/'
+);
+----
+Invalid Input Error: CloudFront secret requires PRIVATE_KEY or PRIVATE_KEY_PATH parameter
+
+# Test error: missing SCOPE
+statement error
+CREATE SECRET test_missing_scope (
+    TYPE cloudfront,
+    KEY_PAIR_ID 'TESTKEYPAIRID',
+    PRIVATE_KEY_PATH '/tmp/test.pem'
+);
+----
+Invalid Input Error: CloudFront secret requires SCOPE parameter
+
+# Test error: invalid SCOPE (not https)
+statement error
+CREATE SECRET test_invalid_scope (
+    TYPE cloudfront,
+    KEY_PAIR_ID 'TESTKEYPAIRID',
+    PRIVATE_KEY_PATH '/tmp/test.pem',
+    SCOPE 'http://example.cloudfront.net/'
+);
+----
+Invalid Input Error: SCOPE must start with https://
