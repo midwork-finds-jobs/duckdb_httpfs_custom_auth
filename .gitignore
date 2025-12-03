@@ -20,6 +20,3 @@ devenv.local.yaml
 
 # Ignore local test queries
 *.sql
-
-# Test keys (generated during test)
-test/data/*.pem
